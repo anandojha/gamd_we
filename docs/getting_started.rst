@@ -1,12 +1,12 @@
 Getting Started
 ===============
-
-This page details how to get started with QMMMReBind. 
+gamd_we Documentation
 
 ########################
 Introduction 
 ########################
 
+Gaussian accelerated molecular dynamics (GaMD) is a well-established enhanced sampling method for molecular dynamics (MD) simulations that effectively samples the potential energy landscape of the system by adding a boost potential, which smoothens the surface and lowers energy barriers between states. However, GaMD is unable to give time-dependent properties like kinetics directly. On the other hand, the weighted ensemble (WE) method can efficiently sample transitions between states with its many weighted trajectories, which directly give us rates and pathways. However, the WE method's performance (i.e., convergence and efficiency) depends heavily on its initial conditions or initial sampling of the potential energy landscape. Hence, we have developed a hybrid method that combines the two methods. GaMD is first used to sample the potential energy landscape of the system. Then the WE method is used to sample further the potential energy landscape and kinetic properties of interest. We show that the hybrid method can sample both thermodynamic and kinetic properties more accurately and quickly compared to using one method by itself. gamd_we aims to create starting structures for WE simulations.
 
 ########################
 Software Requirements
