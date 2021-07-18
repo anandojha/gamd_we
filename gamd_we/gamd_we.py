@@ -2378,7 +2378,7 @@ def run_reweigh():
     os.chdir(cwd)
 
 
-def save_we_inputs():
+def save_westpa_inputs():
 
     """
     Creates separate folders to initiate WE simulations.
@@ -2558,12 +2558,12 @@ def save_we_inputs():
         os.chdir(cwd)
 
 
-def run_save_we_inputs():
+def run_westpa_inputs():
 
     """
 
-    Systematically runs save_we_inputs function in
-    simulation directory.
+    Systematically runs save_westpa_inputs function in
+    the simulation directory.
 
     """
 
@@ -2581,7 +2581,7 @@ def run_save_we_inputs():
 
     for i in dir_list:
         os.chdir(target_dir + i)
-        save_we_inputs()
+        save_westpa_inputs()
     os.chdir(cwd)
 
 
@@ -3410,7 +3410,7 @@ run_simulations()
 run_reweigh()
 # module load amber
 # module load cuda-10.1
-run_save_we_inputs()
+run_westpa_inputs()
 transfer_files()
 add_vectors_westpa_files()
 we_analysis()
