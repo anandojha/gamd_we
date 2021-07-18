@@ -1,12 +1,17 @@
 name: docs
 channels:
+  - conda-forge
+  - ambermd
+  - omnia
+  - defaults
 dependencies:
-    # Base depends
-  - python
+  - python=3.6
+  - curl
+  - matplotlib
+  - openmm
+  - seaborn
+  - pandas
   - pip
-
-
-
-    # Pip-only installs
-  #- pip:
+  - pip:
+    - sphinx-autoapi
 
