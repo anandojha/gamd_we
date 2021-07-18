@@ -16,7 +16,6 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
-
 import gamd_we
 
 
@@ -43,16 +42,32 @@ release = ''
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autosummary',
-    'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
     'sphinx.ext.extlinks',
+    'autoapi.extension',
 ]
 
-autosummary_generate = True
+autoapi_dirs = ['../gamd_we']
+autoapi_ignore = ["*/tests/*",
+                  "*_version.py"]
+
+
+# for a detailed explanation of all the options below, visit the Sphinx-AutoAPI documentation. From there:
+# private-members: Include private objects (eg. _foo in Python)
+# special-members: Include special objects (eg. __foo__ in Python)
+autoapi_options = [ 'members',
+                    'undoc-members',
+                    #'private-members',
+                    #'special-members',
+                    'show-inheritance',
+                    'show-module-summary',
+                    'imported-members']
+
+
+#autosummary_generate = True
 napoleon_google_docstring = False
 napoleon_use_param = False
 napoleon_use_ivar = True
