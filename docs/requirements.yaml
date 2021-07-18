@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - ambermd
   - omnia
+  - defaults
 dependencies:
   - python=3.6
   - curl
@@ -11,6 +12,8 @@ dependencies:
   - seaborn
   - pandas
   - pip
+  - pytraj
+  - ambertools
   - pip:
     - sphinx-autoapi
 
