@@ -76,7 +76,7 @@ Installation and Setup Instructions
     git clone https://github.com/anandojha/gamd_we.git
 
 ########################
-Notes on Gaussian Accelerated Molecular Dynamics
+Gaussian Accelerated Molecular Dynamics
 ########################
 
 
