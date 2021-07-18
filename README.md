@@ -1,18 +1,12 @@
-game_we
-==============================
-[//]: # (Badges)
-[![GitHub Actions Build Status](https://github.com/REPLACE_WITH_OWNER_ACCOUNT/gamd_we/workflows/CI/badge.svg)](https://github.com/REPLACE_WITH_OWNER_ACCOUNT/gamd_we/actions?query=workflow%3ACI)
-[![codecov](https://codecov.io/gh/REPLACE_WITH_OWNER_ACCOUNT/game_we/branch/master/graph/badge.svg)](https://codecov.io/gh/REPLACE_WITH_OWNER_ACCOUNT/game_we/branch/master)
+# GaMDWE - Gaussian Accelerated Molecular Dynamics - Weighted Ensemble (GaMDWE) 
 
-
-A short description of the project.
-
-### Copyright
-
-Copyright (c) 2021, Anupam Anand Ojha
-
-
-#### Acknowledgements
- 
-Project based on the 
-[Computational Molecular Science Python Cookiecutter](https://github.com/molssi/cookiecutter-cms) version 1.5.
+## Installation and Setup Instructions :
+* Make sure [anaconda3](https://www.anaconda.com/) is installed on the local machine. Go to the  [download](https://www.anaconda.com/products/individual) page of anaconda3 and install the latest version of anaconda3.
+* Create a new conda environment with python = 3.8 and install the package with the following commands in the terminal: 
+```bash
+conda create -n gamdwe python=3.6
+conda activate gamdwe
+conda install -c conda-forge curl matplotlib openmm seaborn pandas 
+conda install -c ambermd pytraj
+conda install -c omnia ambertools
+```
