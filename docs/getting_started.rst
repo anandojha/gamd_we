@@ -43,11 +43,9 @@ Installation and Setup Instructions
 
     conda install -c conda-forge matplotlib # Install matplotlib
 
-
 .. code-block:: python
 
     conda install -c conda-forge openmm  # Install openmm
-
 
 .. code-block:: python
 
@@ -59,11 +57,15 @@ Installation and Setup Instructions
 
 .. code-block:: python
 
-    conda install -c ambermd pytraj # Install pytraj
+    conda install -c conda-forge mdtraj # Install mdtraj
 
 .. code-block:: python
 
-    conda install -c omnia ambertools # Install ambertools
+    conda install -c conda-forge openmm # Install openmm
+
+.. code-block:: python
+
+    conda install -c conda-forge jupyterlab # Install jupyterlab
 
 .. code-block:: python
 

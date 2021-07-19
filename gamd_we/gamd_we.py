@@ -9,7 +9,7 @@ from sys import stdout
 import seaborn as sns
 from math import exp
 import pandas as pd
-import pytraj as pt
+import mdtraj as md
 import pickle as pk
 import numpy as np
 import statistics
@@ -18,8 +18,95 @@ import fileinput
 import fnmatch
 import shutil
 import random
+import math
 import os
 import re
+
+
+def fix_cap_remove_ace(pdb_file):
+
+    """
+    Removes the H atoms of the capped ACE residue.
+
+    """
+
+    remove_words = [
+        "H1  ACE",
+        "H2  ACE",
+        "H3  ACE",
+        "H31 ACE",
+        "H32 ACE",
+        "H33 ACE",
+    ]
+    with open(pdb_file) as oldfile, open("intermediate.pdb", "w") as newfile:
+        for line in oldfile:
+            if not any(word in line for word in remove_words):
+                newfile.write(line)
+    command = "rm -rf " + pdb_file
+    os.system(command)
+    command = "mv intermediate.pdb " + pdb_file
+    os.system(command)
+
+
+def fix_cap_replace_ace(pdb_file):
+
+    """
+    Replaces the alpha carbon atom of the
+    capped ACE residue with a standard name.
+
+    """
+
+    fin = open(pdb_file, "rt")
+    data = fin.read()
+    data = data.replace("CA  ACE", "CH3 ACE")
+    data = data.replace("C   ACE", "CH3 ACE")
+    fin.close()
+    fin = open(pdb_file, "wt")
+    fin.write(data)
+    fin.close()
+
+
+def fix_cap_remove_nme(pdb_file):
+
+    """
+    Removes the H atoms of the capped NME residue.
+
+    """
+
+    remove_words = [
+        "H1  NME",
+        "H2  NME",
+        "H3  NME",
+        "H31 NME",
+        "H32 NME",
+        "H33 NME",
+    ]
+    with open(pdb_file) as oldfile, open("intermediate.pdb", "w") as newfile:
+        for line in oldfile:
+            if not any(word in line for word in remove_words):
+                newfile.write(line)
+    command = "rm -rf " + pdb_file
+    os.system(command)
+    command = "mv intermediate.pdb " + pdb_file
+    os.system(command)
+
+
+def fix_cap_replace_nme(pdb_file):
+
+    """
+    Replaces the alpha carbon atom of the
+    capped NME residue with a standard name.
+
+    """
+
+    fin = open(pdb_file, "rt")
+    data = fin.read()
+    data = data.replace("CA  NME", "CH3 NME")
+    data = data.replace("C   NME", "CH3 NME")
+    fin.close()
+    fin = open(pdb_file, "wt")
+    fin.write(data)
+    fin.close()
 
 
 def prepare_alanine_dipeptide():
@@ -823,8 +910,6 @@ def create_data_files(
     traj="system_final.nc",
     topology="system_final.prmtop",
     T=300,
-    index_phi=[5, 7, 9, 15],
-    index_psi=[7, 9, 15, 17],
 ):
 
     """
@@ -852,12 +937,6 @@ def create_data_files(
     T: int
         MD simulation temperature
 
-    index_phi: list
-        List of indices of atoms to define phi dihedral
-
-    index_psi: list
-        List of indices of atoms to define psi dihedral
-
     """
 
     # To make data consistent with gamd.log and .nc file
@@ -880,9 +959,6 @@ def create_data_files(
     # From the .nc trajectory files, we will not consider ntcmd trajectories
     leave_frames = int(ntcmd / ntwx)
     no_frames = int(nstlim / ntwx)
-    frame_indices = []
-    for i in range(leave_frames, no_frames, jump):
-        frame_indices.append(i)
     # Recheck conditions
     file = open("gamd.log", "r")
     number_of_lines = 0
@@ -898,29 +974,14 @@ def create_data_files(
         datapoints = number_of_lines - 3
     print(datapoints == int((nstlim - ntcmd) / ntwx))
     # Creating Psi.dat and Phi_Psi.dat
-    traj = pt.load(traj, top=topology, frame_indices=frame_indices)
-    index_phi_add = (
-        "@"
-        + str(index_phi[0])
-        + " @"
-        + str(index_phi[1])
-        + " @"
-        + str(index_phi[2])
-        + " @"
-        + str(index_phi[3])
-    )
-    index_psi_add = (
-        "@"
-        + str(index_psi[0])
-        + " @"
-        + str(index_psi[1])
-        + " @"
-        + str(index_psi[2])
-        + " @"
-        + str(index_psi[3])
-    )
-    phi = pt.dihedral(traj, index_phi_add)
-    psi = pt.dihedral(traj, index_psi_add)
+    traj = md.load(traj, top=topology)
+    traj = traj[leave_frames:no_frames:jump]
+    phi = md.compute_phi(traj)
+    phi = phi[1]  # 0:indices, 1:phi angles
+    phi = np.array([math.degrees(i) for i in phi])  # radians to degrees
+    psi = md.compute_psi(traj)
+    psi = psi[1]  # 0:indices, 1:psi angles
+    psi = np.array([math.degrees(i) for i in psi])  # radians to degrees
     df_psi = pd.DataFrame(phi, columns=["Psi"])
     df_psi = df_psi.tail(int(datapoints))
     df_psi.to_csv("Psi.dat", sep="\t", index=False, header=False)
@@ -1811,11 +1872,13 @@ def save_frames():
         k = index_bins[j]
         k = k.strip("[]")
         k = k.replace(" , ", "_")
-        traj = pt.load(
-            "system_final.nc", top="system_final.prmtop", frame_indices=[i]
+        # traj = pt.load("system_final.nc", top="system_final.prmtop", frame_indices=[i])
+        traj = md.load_frame(
+            "system_final.nc", top="system_final.prmtop", index=i
         )
         frame_pdb = str(frame_index) + "_" + k + "_1d_c1_" + str(i) + ".pdb"
-        pt.save(frame_pdb, traj, overwrite=True)
+        # pt.save(frame_pdb, traj, overwrite=True)
+        traj.save_pdb(frame_pdb, force_overwrite=True)
         target_dir = cwd + "/" + "we_structures" + "/" + "1d_c1"
         shutil.move(cwd + "/" + frame_pdb, target_dir + "/" + frame_pdb)
     with open("frames_c12_1d.pickle", "rb") as input_file:
@@ -1826,11 +1889,13 @@ def save_frames():
         k = index_bins[j]
         k = k.strip("[]")
         k = k.replace(" , ", "_")
-        traj = pt.load(
-            "system_final.nc", top="system_final.prmtop", frame_indices=[i]
+        # traj = pt.load("system_final.nc", top="system_final.prmtop", frame_indices=[i])
+        traj = md.load_frame(
+            "system_final.nc", top="system_final.prmtop", index=i
         )
         frame_pdb = str(frame_index) + "_" + k + "_1d_c12_" + str(i) + ".pdb"
-        pt.save(frame_pdb, traj, overwrite=True)
+        # pt.save(frame_pdb, traj, overwrite=True)
+        traj.save_pdb(frame_pdb, force_overwrite=True)
         target_dir = cwd + "/" + "we_structures" + "/" + "1d_c12"
         shutil.move(cwd + "/" + frame_pdb, target_dir + "/" + frame_pdb)
     with open("frames_c123_1d.pickle", "rb") as input_file:
@@ -1841,11 +1906,13 @@ def save_frames():
         k = index_bins[j]
         k = k.strip("[]")
         k = k.replace(" , ", "_")
-        traj = pt.load(
-            "system_final.nc", top="system_final.prmtop", frame_indices=[i]
+        # traj = pt.load("system_final.nc", top="system_final.prmtop", frame_indices=[i])
+        traj = md.load_frame(
+            "system_final.nc", top="system_final.prmtop", index=i
         )
         frame_pdb = str(frame_index) + "_" + k + "_1d_c123_" + str(i) + ".pdb"
-        pt.save(frame_pdb, traj, overwrite=True)
+        # pt.save(frame_pdb, traj, overwrite=True)
+        traj.save_pdb(frame_pdb, force_overwrite=True)
         target_dir = cwd + "/" + "we_structures" + "/" + "1d_c123"
         shutil.move(cwd + "/" + frame_pdb, target_dir + "/" + frame_pdb)
     df1 = pd.read_csv("df_2d.csv")
@@ -1866,11 +1933,13 @@ def save_frames():
         k = k.strip("[]")
         k = k.replace("] , [", "_")
         k = k.replace(", ", "_")
-        traj = pt.load(
-            "system_final.nc", top="system_final.prmtop", frame_indices=[i]
+        # traj = pt.load("system_final.nc", top="system_final.prmtop", frame_indices=[i])
+        traj = md.load_frame(
+            "system_final.nc", top="system_final.prmtop", index=i
         )
         frame_pdb = str(frame_index) + "_" + k + "_2d_c1_" + str(i) + ".pdb"
-        pt.save(frame_pdb, traj, overwrite=True)
+        # pt.save(frame_pdb, traj, overwrite=True)
+        traj.save_pdb(frame_pdb, force_overwrite=True)
         target_dir = cwd + "/" + "we_structures" + "/" + "2d_c1"
         shutil.move(cwd + "/" + frame_pdb, target_dir + "/" + frame_pdb)
     with open("frames_c12_2d.pickle", "rb") as input_file:
@@ -1882,11 +1951,13 @@ def save_frames():
         k = k.strip("[]")
         k = k.replace("] , [", "_")
         k = k.replace(", ", "_")
-        traj = pt.load(
-            "system_final.nc", top="system_final.prmtop", frame_indices=[i]
+        # traj = pt.load("system_final.nc", top="system_final.prmtop", frame_indices=[i])
+        traj = md.load_frame(
+            "system_final.nc", top="system_final.prmtop", index=i
         )
         frame_pdb = str(frame_index) + "_" + k + "_2d_c12_" + str(i) + ".pdb"
-        pt.save(frame_pdb, traj, overwrite=True)
+        # pt.save(frame_pdb, traj, overwrite=True)
+        traj.save_pdb(frame_pdb, force_overwrite=True)
         target_dir = cwd + "/" + "we_structures" + "/" + "2d_c12"
         shutil.move(cwd + "/" + frame_pdb, target_dir + "/" + frame_pdb)
     with open("frames_c123_2d.pickle", "rb") as input_file:
@@ -1898,11 +1969,13 @@ def save_frames():
         k = k.strip("[]")
         k = k.replace("] , [", "_")
         k = k.replace(", ", "_")
-        traj = pt.load(
-            "system_final.nc", top="system_final.prmtop", frame_indices=[i]
+        # traj = pt.load("system_final.nc", top="system_final.prmtop", frame_indices=[i])
+        traj = md.load_frame(
+            "system_final.nc", top="system_final.prmtop", index=i
         )
         frame_pdb = str(frame_index) + "_" + k + "_2d_c123_" + str(i) + ".pdb"
-        pt.save(frame_pdb, traj, overwrite=True)
+        # pt.save(frame_pdb, traj, overwrite=True)
+        traj.save_pdb(frame_pdb, force_overwrite=True)
         target_dir = cwd + "/" + "we_structures" + "/" + "2d_c123"
         shutil.move(cwd + "/" + frame_pdb, target_dir + "/" + frame_pdb)
 
@@ -2396,6 +2469,8 @@ def save_westpa_inputs():
             if fnmatch.fnmatch(x, file_to_find):
                 pdb_list.append(x)
         for j in pdb_list:
+            fix_cap_remove_nme(j)
+            fix_cap_replace_nme(j)
             inpcrd_file = j[:-4] + ".inpcrd"
             filename = "input_" + j[:-4] + ".leap"
             file = open(filename, "w")
@@ -3396,8 +3471,6 @@ def clean_for_analysis():
 
 
 """
-# module load amber
-# module load cuda-10.1
 prepare_alanine_dipeptide()
 run_equilibration()
 create_starting_structures()
@@ -3405,16 +3478,12 @@ add_vec_inpcrd()
 add_vec_prmtop()
 create_filetree()
 run_simulations()
-# module unload amber
-# module unload cuda-10.1
 run_reweigh()
-# module load amber
-# module load cuda-10.1
 run_westpa_inputs()
 transfer_files()
 add_vectors_westpa_files()
 we_analysis()
 correction_westpa()
 plot_contrib()
-#clean_for_analysis()
+clean_for_analysis()
 """

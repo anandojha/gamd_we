@@ -1,8 +1,6 @@
 name: docs
 channels:
   - conda-forge
-  - ambermd
-  - omnia
   - defaults
 dependencies:
   - python=3.6
@@ -11,9 +9,8 @@ dependencies:
   - openmm
   - seaborn
   - pandas
-  - pip
-  - pytraj
-  - ambertools
+  - mdtraj
+  - jupyterlab
   - pip:
     - sphinx-autoapi
 
