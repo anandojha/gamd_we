@@ -1,6 +1,5 @@
 Getting Started
 ===============
-gamd_we Documentation
 
 ########################
 Introduction 

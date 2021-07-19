@@ -3286,12 +3286,18 @@ def plot_contrib():
     ax[1, 0].imshow(img_4)
     ax[2, 0].imshow(img_5)
     ax[2, 1].imshow(img_6)
-    plt.savefig("analysis.jpeg")
+    plt.savefig("analysis.png")
     plt.show(block=False)
     plt.pause(3)
     plt.close()
 
-    os.system("rm -rf *png*")
+    cwd = os.getcwd()
+    os.system("rm -rf analysis")
+    os.system("mkdir analysis")
+    target_dir = cwd + "/" + "analysis"
+    command = "mv analysis.png " + target_dir
+    os.system(command)
+    os.system("rm -rf *.png*")
 
 
 def clean_for_analysis():
