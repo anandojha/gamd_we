@@ -10,7 +10,6 @@ dependencies:
   - seaborn
   - pandas
   - mdtraj
-  - jupyterlab
   - pip
   - pip:
     - sphinx-autoapi
