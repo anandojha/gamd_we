@@ -6,4 +6,4 @@
 ```bash
 conda create -n gamdwe python=3.6
 conda activate gamdwe
-conda install -c conda-forge curl matplotlib openmm seaborn pandas mdtraj jupyterlab ambertools
+conda install -c conda-forge curl matplotlib openmm seaborn pandas mdtraj jupyterlab

@@ -64,10 +64,6 @@ Installation and Setup Instructions
 
 .. code-block:: python
 
-    conda install -c conda-forge jupyterlab # Install jupyterlab
-
-.. code-block:: python
-
     conda install git # Install git
 
 * Clone the *gamd_we* repository :
