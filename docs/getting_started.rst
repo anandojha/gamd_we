@@ -11,7 +11,7 @@ Gaussian accelerated molecular dynamics (GaMD) is a well-established enhanced sa
 Software Requirements
 ########################
 
-* Amber 18
+* Amber 20
 * Cuda
 
 ########################
