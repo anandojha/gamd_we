@@ -16,8 +16,8 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
-from gamd_we import gamd_we_alanine_dipeptide
-from gamd_we import gamd_we_chignolin
+import gamd_we_alanine_dipeptide
+import gamd_we_chignolin
 
 # -- Project information -----------------------------------------------------
 
