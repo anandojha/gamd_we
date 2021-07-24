@@ -16,8 +16,8 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
-import gamd_we
-
+import gamd_we.gamd_we_alanine_dipeptide
+import gamd_we.gamd_we_chignolin
 # -- Project information -----------------------------------------------------
 
 project = 'game_we'
