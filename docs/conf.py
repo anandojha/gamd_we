@@ -49,7 +49,6 @@ extensions = [
 ]
 extensions.append('sphinx.ext.autodoc')
 extensions.append('sphinx.ext.imgmath')
-extensions.append('rst2pdf.pdfbuilder')
 autoapi_dirs = ['../gamd_we']
 autoapi_ignore = ["*/tests/*",
                   "*_version.py"]
@@ -135,7 +134,6 @@ htmlhelp_basename = 'gamd_wedoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
-latex_engine = 'xelatex'
 
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
