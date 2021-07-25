@@ -47,11 +47,12 @@ extensions = [
     'sphinx.ext.extlinks',
     'autoapi.extension',
 ]
-
+extensions.append('sphinx.ext.autodoc')
+extensions.append('sphinx.ext.imgmath')
+extensions.append('rst2pdf.pdfbuilder')
 autoapi_dirs = ['../gamd_we']
 autoapi_ignore = ["*/tests/*",
                   "*_version.py"]
-
 
 # for a detailed explanation of all the options below, visit the Sphinx-AutoAPI documentation. From there:
 # private-members: Include private objects (eg. _foo in Python)
@@ -134,6 +135,7 @@ htmlhelp_basename = 'gamd_wedoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
+latex_engine = 'xelatex'
 
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').

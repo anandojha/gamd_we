@@ -78,36 +78,36 @@ Gaussian Accelerated Molecular Dynamics (GaMD) has been implemented in pmemd, bo
 
 1. imin  -  Flag to run minimization 
 
-.. code-block:: 
+.. code-block:: none
 
     = 0 (default) run molecular dynamics without any minimization
 
-.. code-block:: 
+.. code-block:: none
 
     = 1 perform an energy minimization
 
-.. code-block:: 
+.. code-block:: none
 
     = 5 read in a trajectory for analysis
 
 
 2. irest  - Flag to restart simulation 
 
-.. code-block:: 
+.. code-block:: none 
 
     = 0 (default) do not restart the simulation and run as a new simulation
 
-.. code-block:: 
+.. code-block:: none 
 
     = 1 restart the simulation reading coordinates and velocities from a previously saved restart file
 
 3. ntx  -  Option to read initial coordinates, velocities and box size from the inpcrd file 
 
-.. code-block:: 
+.. code-block:: none 
 
     = 1 (default) coordinates but no velocities will be read from either a NetCDF or a formatted (ASCII) coordinate
 
-.. code-block:: 
+.. code-block:: none 
 
     = 5 coordinates and velocities will be read from either a NetCDF or a formatted (ASCII) coordinate. Box information will be read if ntb > 0 and velocity information will only be used if irest = 1
 
@@ -117,15 +117,15 @@ Gaussian Accelerated Molecular Dynamics (GaMD) has been implemented in pmemd, bo
 
 6. ntc  -  Flag for SHAKE to perform bond length constraints 
 
-.. code-block:: 
+.. code-block:: none 
 
     = 1 SHAKE is not performed (default) 
 
-.. code-block:: 
+.. code-block:: none 
 
     = 2 bonds involving hydrogen are constrained 
 
-.. code-block:: 
+.. code-block:: none 
 
     = 3 all bonds are constrained 
 
@@ -139,15 +139,15 @@ Gaussian Accelerated Molecular Dynamics (GaMD) has been implemented in pmemd, bo
 
 10. ntb - This variable controls whether or not periodic boundaries are imposed on the system during calculation of non-bonded interactions. Bonds spanning periodic boundaries are not yet supported. There is no longer any need to set this variable, since it can be determined from igb and ntp parameters. The “proper” default for ntb is chosen (ntb = 0 when igb > 0, ntb = 2 when ntp > 0, and ntb = 1 otherwise). This behavior can be overridden by supplying an explicit value, although this is discouraged to prevent errors. 
 
-.. code-block:: 
+.. code-block:: none 
 
     = 0 no periodicity is applied and PME is off (default when igb > 0)
 
-.. code-block:: 
+.. code-block:: none 
 
     = 1 constant volume (default when igb and NTP are both 0, which are their defaults)
 
-.. code-block:: 
+.. code-block:: none 
 
     = 2 constant pressure (default when ntp > 0) 
 
@@ -166,22 +166,22 @@ Gaussian Accelerated Molecular Dynamics (GaMD) has been implemented in pmemd, bo
 
 17. ntxo - Format of the final coordinates, velocities, and box size (if constant volume or pressure run) written to file "restart" 
 
-.. code-block:: 
+.. code-block:: none 
 
     = 1 Formatted (ASCII)
 
-.. code-block:: 
+.. code-block:: none 
   
     = 2 (default) NetCDF file
 
 
 18. ioutfm - Format of coordinate and velocity trajectory files (mdcrd, mdvel and inptraj). Binary output is in NetCDF trajectory format 
 
-.. code-block:: 
+.. code-block:: none 
 
     = 0 Formatted ASCII trajectory
 
-.. code-block:: 
+.. code-block:: none 
 
     = 1 (default) Binary NetCDF trajectory 
 
@@ -191,60 +191,61 @@ Gaussian Accelerated Molecular Dynamics (GaMD) has been implemented in pmemd, bo
 
 20. ntwprt  - Number of atoms to include in trajectory files (mdcrd and mdvel). This flag can be used to decrease the size of the these files, by including only the first part of the system, which is usually of greater interest (for instance, one might include only the solute and not the solvent) 
 
-.. code-block:: 
+.. code-block:: none 
 
     = 0 (default) Include all atoms of the system when writing trajectories.
 
 
 21. igamd  - Flag to apply boost potential 
 
-.. code-block::  
+.. code-block:: none  
 
     = 0 (default) no boost is applied 
 
-.. code-block::  
+.. code-block:: none  
 
     = 1 boost on the total potential energy only
 
-.. code-block:: 
+.. code-block:: none 
 
     = 2 boost on the dihedral energy only
 
-.. code-block:: 
+.. code-block:: none 
 
     = 3 dual boost on the both, dihedral and total potential energy 
 
 
 22. iE - Flag to set the threshold energy E 
 
-.. code-block:: 
+.. code-block:: none 
 
     = 1 (default) set the threshold energy to the lower bound E = Vmax
 
-.. code-block:: 
+.. code-block:: none 
 
     = 2 set the threshold energy to the upper bound E = Vmax + 1/k 
 
 23. irest_gamd - Flag to restart GaMD simulation 
 
-.. code-block:: 
+.. code-block:: none 
 
     = 0 (default) new simulation. A file "gamd-restart.dat" that stores the maximum, minimum, average and standard deviation of the dihedral and/or total potential energies (depending on the igamd flag) will be saved automatically after GaMD equilibration stage
 
-.. code-block:: 
+.. code-block:: none
 
     = 1 restart simulation (ntcmd is set to 0 in this case). The "gamd-restart.dat" file will be read for restart 
 
 
-24. ntcmd - Number of initial conventional molecular dynamics simulation steps. Potential energies are collected between ntcmdprep and ntcmd to calculate their maximum, minimum, average and standard deviation (V\ :sub:`max`\, V\ :sub:`min`\, V\ :sub:`avg`\, sigma\ :sub:`V`\). The default is 1,000,000 for a simulation with 2 fs timestep.
+24. ntcmd - Number of initial conventional molecular dynamics simulation steps. Potential energies are collected between ntcmdprep and ntcmd to calculate their maximum, minimum, average and standard deviation (V\ :sub:`max`\, V\ :sub:`min`\, V\ :sub:`avg`\, Ƿ\ :sub:`V`\). The default is 1,000,000 for a simulation with 2 fs timestep.
 
-25. nteb - Number of biasing molecular dynamics simulation steps. Potential statistics (V\ :sub:`max`\, V\ :sub:`min`\, V\ :sub:`avg`\, sigma\ :sub:`V`\) are updated between the ntebprep and nteb steps and used to calculate GaMD acceleration parameters, particularly E and  k\ :sub:`0`\. The default is 1,000,000 for a simulation with 2 fs timestep. A greater value may be needed to ensure that the potential statistics and GaMD acceleration parameters level off before running production simulation between the nteb and nstlim (total simulation length) steps. Moreover, nteb can be set to nstlim, by which the potential statistics and GaMD acceleration parameters are updated adaptively throughout the simulation. This is some cases provides more appropriate acceleration.
+
+25. nteb - Number of biasing molecular dynamics simulation steps. Potential statistics (V\ :sub:`max`\, V\ :sub:`min`\, V\ :sub:`avg`\,  Ƿ\ :sub:`V`\) are updated between the ntebprep and nteb steps and used to calculate GaMD acceleration parameters, particularly E and  k\ :sub:`0`\. The default is 1,000,000 for a simulation with 2 fs timestep. A greater value may be needed to ensure that the potential statistics and GaMD acceleration parameters level off before running production simulation between the nteb and nstlim (total simulation length) steps. Moreover, nteb can be set to nstlim, by which the potential statistics and GaMD acceleration parameters are updated adaptively throughout the simulation. This is some cases provides more appropriate acceleration.
 
 26. ntave - Number of simulation steps used to calculate the average and standard deviation of potential energies. The default is set to 50,000 for GaMD simulations. It is recommended to be updated as about 4 times of the total number of atoms in the system. Note that ntcmd and nteb need to be multiples of ntave.
 
 27. ntcmdprep -  Number of preparation conventional molecular dynamics steps. This is used for system equilibration and the potential energies are not collected for calculating their statistics. The default is 200,000 for a simulation with 2 fs timestep.
 
-28. ntebprep - Number of preparation biasing molecular dynamics simulation steps. This is used for system equilibration after adding the boost potential and the potential statistics  (V\ :sub:`max`\, V\ :sub:`min`\, V\ :sub:`avg`\, sigma\ :sub:`V`\) are not updated during these steps. The default is 200,000 for a simulation with 2 fs timestep.
+28. ntebprep - Number of preparation biasing molecular dynamics simulation steps. This is used for system equilibration after adding the boost potential and the potential statistics  (V\ :sub:`max`\, V\ :sub:`min`\, V\ :sub:`avg`\,  Ƿ\ :sub:`V`\) are not updated during these steps. The default is 200,000 for a simulation with 2 fs timestep.
 
 29. sigm0D - Upper limit of the standard deviation of the dihedral potential boost that allows for accurate reweighting if igamd is set to 2 or 3. The default is 6.0 (unit: kcal/mol).
 30. sigma0P - Upper limit of the standard deviation of the total potential boost that allows for accurate reweighting if igamd is set to 1 or 3. The default is 6.0 (unit: kcal/mol).
