@@ -1,4 +1,5 @@
 from gamd_we_chignolin import *
+
 prepare_chignolin()
 run_equilibration()
 refine_system()
@@ -10,4 +11,4 @@ transfer_files()
 we_analysis()
 correction_westpa()
 plot_contrib()
-#clean_for_analysis()                  
+# clean_for_analysis()

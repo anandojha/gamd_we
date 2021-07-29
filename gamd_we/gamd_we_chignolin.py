@@ -338,7 +338,6 @@ def run_equilibration():
     os.system("rm -rf system.inpcrd")
     os.system("rm -rf system.parm7")
     os.system("rm -rf system.pdb")
-    os.system("rm -rf system.inpcrd")
     os.system("rm -rf system.rst7")
     os.system("rm -rf system.prmtop")
     os.system("rm -rf chignolin.pdb")
@@ -419,9 +418,9 @@ def create_filetree(
 
     nst_lim: int
         Total simulation time including preparatory simulation.
-        For example, if nst_lim = 26000000, then, we may have
+        For example, if nst_lim = 251000000, then, we may have
         2 ns of preparatory simulation i.e. 1000000 preparation steps
-        and 50 ns of GaMD simulation i.e. 25000000 simulation steps
+        and 500 ns of GaMD simulation i.e. 250000000 simulation steps
 
     ntw_x: int
         Saving coordinates of the simulation every ntw_x

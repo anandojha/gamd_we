@@ -572,7 +572,6 @@ def run_equilibration():
     os.system("rm -rf system_TIP3P.inpcrd")
     os.system("rm -rf system_TIP3P.parm7")
     os.system("rm -rf system_TIP3P.pdb")
-    os.system("rm -rf system_TIP3P.inpcrd")
     os.system("rm -rf system_TIP3P.rst7")
     os.system("rm -rf system_TIP3P.prmtop")
     os.system("rm -rf system.pdb")
@@ -627,7 +626,7 @@ def add_vec_inpcrd():
     """
 
     Adds box dimensions captured from the last saved
-    frame of the NVT simulationsto the inpcrd file.
+    frame of the NVT simulations to the inpcrd file.
     Only to be used when the box dimensions are not
     present in the inpcrd file.
 
@@ -676,7 +675,7 @@ def add_vec_prmtop():
     """
 
     Adds box dimensions captured from the last saved
-    frame of the NVT simulationsto the prmtop file.
+    frame of the NVT simulations to the prmtop file.
     Only to be used when the box dimensions are not
     present in the prmtop file.
 
