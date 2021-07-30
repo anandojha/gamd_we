@@ -809,6 +809,1462 @@ def run_simulations():
     os.chdir(cwd)
 
 
+def create_data_files(
+    index_phi=[200, 202, 204, 207],
+    index_psi=[584, 586, 588, 591],
+    jump=10,
+    traj="system_final.nc",
+    topology="system_final.prmtop",
+    T=300,
+):
+
+    """
+
+    Extracts data from GaMD log files and saves them as
+    weights.dat, Psi.dat and Phi_Psi.dat. gamd.log file
+    contains data excluding the initial equilibration MD
+    simulation steps but trajectory output file has all
+    the trajectories including the initial equilibration
+    MD steps.  This part has ben taken care to make the
+    data consistent.
+
+    Parameters
+    ----------
+
+    index_phi : list
+        List of indices of the phi dihedral to
+        be calculated
+
+    index_phi : list
+        List of indices of the phi dihedral to
+        be calculated
+
+    jump: int
+        Every nth frame to be considered for
+        reweighting
+
+    traj: str
+        System's trajectory file
+
+    topology: str
+        System's topology file
+
+    T: int
+        MD simulation temperature
+
+    """
+
+    # To make data consistent with gamd.log and .nc file
+    factor = 0.001987 * T
+    with open("md.in") as f:
+        lines = f.readlines()
+    for i in lines:
+        if "nstlim =" in i:
+            nstlim_line = i
+        if "ntcmd =" in i:
+            ntcmd_line = i
+        if "ntwx =" in i:
+            ntwx_line = i
+    x = re.findall(r"\b\d+\b", ntcmd_line)
+    ntcmd = int(x[0])
+    x = re.findall(r"\b\d+\b", nstlim_line)
+    nstlim = int(x[0])
+    x = re.findall(r"\b\d+\b", ntwx_line)
+    ntwx = int(x[1])
+    # From the .nc trajectory files, we will not consider ntcmd trajectories
+    leave_frames = int(ntcmd / ntwx)
+    no_frames = int(nstlim / ntwx)
+    frame_indices = []
+    for i in range(leave_frames, no_frames, jump):
+        frame_indices.append(i)
+    # Recheck conditions
+    file = open("gamd.log", "r")
+    number_of_lines = 0
+    for line in file:
+        line = line.strip("\n")
+        number_of_lines += 1
+    file.close()
+    f = open("gamd.log")
+    fourth_line = f.readlines()[3]
+    if str(ntcmd) in fourth_line:
+        datapoints = number_of_lines - 4
+    if not str(ntcmd) in fourth_line:
+        datapoints = number_of_lines - 3
+    print(datapoints == int((nstlim - ntcmd) / ntwx))
+    # Creating Psi.dat and Phi_Psi.dat
+    traj = md.load(traj, top=topology)
+    traj = traj[leave_frames:no_frames:jump]
+    phi = md.compute_dihedrals(
+        traj,
+        indices=np.array(
+            [[index_phi[0], index_phi[1], index_phi[2], index_phi[3]]]
+        ),
+    )
+    phi = np.array([math.degrees(i) for i in phi])  # radians to degrees
+    psi = md.compute_dihedrals(
+        traj,
+        indices=np.array(
+            [[index_psi[0], index_psi[1], index_psi[2], index_psi[3]]]
+        ),
+    )
+    psi = np.array([math.degrees(i) for i in psi])  # radians to degrees
+    phi = np.array([math.degrees(i) for i in phi])  # radians to degrees
+    psi = np.array([math.degrees(i) for i in psi])  # radians to degrees
+    df_psi = pd.DataFrame(phi, columns=["Psi"])
+    df_psi = df_psi.tail(int(datapoints))
+    df_psi.to_csv("Psi.dat", sep="\t", index=False, header=False)
+    df_phi = pd.DataFrame(psi, columns=["Phi"])
+    df_phi = df_phi.tail(int(datapoints))
+    df_phi_psi = pd.concat([df_phi, df_psi], axis=1)
+    df_phi_psi.to_csv("Phi_Psi.dat", sep="\t", index=False, header=False)
+    # Creating weights.dat
+    with open("gamd.log") as f:
+        lines = f.readlines()
+    column_names = lines[2]
+    column_names = column_names.replace("#", "")
+    column_names = column_names.replace("\n", "")
+    column_names = column_names.replace(" ", "")
+    column_names = column_names.split(",")
+    list_words = ["#"]
+    with open("gamd.log") as oldfile, open("data.log", "w") as newfile:
+        for line in oldfile:
+            if not any(word in line for word in list_words):
+                newfile.write(line)
+    df = pd.read_csv("data.log", delim_whitespace=True, header=None)
+    df.columns = column_names
+    df["dV(kcal/mol)"] = (
+        df["Boost-Energy-Potential"] + df["Boost-Energy-Dihedral"]
+    )
+    df["dV(kbT)"] = df["dV(kcal/mol)"] / factor
+    df_ = df[["dV(kbT)", "total_nstep", "dV(kcal/mol)"]]
+    df_ = df_[::jump]
+    df_.to_csv("weights.dat", sep="\t", index=False, header=False)
+    os.system("rm -rf data.log")
+    print(df_phi_psi.shape)
+    print(df_phi.shape)
+    print(df_.shape)
+
+
+def create_data_files(
+    jump=10,
+    traj="system_final.nc",
+    topology="system_final.prmtop",
+    T=300,
+):
+
+    """
+
+    Extracts data from GaMD log files and saves them as
+    weights.dat, Psi.dat and Phi_Psi.dat. gamd.log file
+    contains data excluding the initial equilibration MD
+    simulation steps but trajectory output file has all
+    the trajectories including the initial equilibration
+    MD steps.  This part has ben taken care to make the
+    data consistent.
+
+    Parameters
+    ----------
+
+    jump: int
+        Every nth frame to be considered for reweighting
+
+    traj: str
+        System's trajectory file
+
+    topology: str
+        System's topology file
+
+    T: int
+        MD simulation temperature
+
+    """
+
+    # To make data consistent with gamd.log and .nc file
+    factor = 0.001987 * T
+    with open("md.in") as f:
+        lines = f.readlines()
+    for i in lines:
+        if "nstlim =" in i:
+            nstlim_line = i
+        if "ntcmd =" in i:
+            ntcmd_line = i
+        if "ntwx =" in i:
+            ntwx_line = i
+    x = re.findall(r"\b\d+\b", ntcmd_line)
+    ntcmd = int(x[0])
+    x = re.findall(r"\b\d+\b", nstlim_line)
+    nstlim = int(x[0])
+    x = re.findall(r"\b\d+\b", ntwx_line)
+    ntwx = int(x[1])
+    # From the .nc trajectory files, we will not consider ntcmd trajectories
+    leave_frames = int(ntcmd / ntwx)
+    no_frames = int(nstlim / ntwx)
+    # Recheck conditions
+    file = open("gamd.log", "r")
+    number_of_lines = 0
+    for line in file:
+        line = line.strip("\n")
+        number_of_lines += 1
+    file.close()
+    f = open("gamd.log")
+    fourth_line = f.readlines()[3]
+    if str(ntcmd) in fourth_line:
+        datapoints = number_of_lines - 4
+    if not str(ntcmd) in fourth_line:
+        datapoints = number_of_lines - 3
+    print(datapoints == int((nstlim - ntcmd) / ntwx))
+    # Creating Psi.dat and Phi_Psi.dat
+    traj = md.load(traj, top=topology)
+    traj = traj[leave_frames:no_frames:jump]
+    phi = md.compute_phi(traj)
+    phi = phi[1]  # 0:indices, 1:phi angles
+    phi = np.array([math.degrees(i) for i in phi])  # radians to degrees
+    psi = md.compute_psi(traj)
+    psi = psi[1]  # 0:indices, 1:psi angles
+    psi = np.array([math.degrees(i) for i in psi])  # radians to degrees
+    df_psi = pd.DataFrame(phi, columns=["Psi"])
+    df_psi = df_psi.tail(int(datapoints))
+    df_psi.to_csv("Psi.dat", sep="\t", index=False, header=False)
+    df_phi = pd.DataFrame(psi, columns=["Phi"])
+    df_phi = df_phi.tail(int(datapoints))
+    df_phi_psi = pd.concat([df_phi, df_psi], axis=1)
+    df_phi_psi.to_csv("Phi_Psi.dat", sep="\t", index=False, header=False)
+    # Creating weights.dat
+    with open("gamd.log") as f:
+        lines = f.readlines()
+    column_names = lines[2]
+    column_names = column_names.replace("#", "")
+    column_names = column_names.replace("\n", "")
+    column_names = column_names.replace(" ", "")
+    column_names = column_names.split(",")
+    list_words = ["#"]
+    with open("gamd.log") as oldfile, open("data.log", "w") as newfile:
+        for line in oldfile:
+            if not any(word in line for word in list_words):
+                newfile.write(line)
+    df = pd.read_csv("data.log", delim_whitespace=True, header=None)
+    df.columns = column_names
+    df["dV(kcal/mol)"] = (
+        df["Boost-Energy-Potential"] + df["Boost-Energy-Dihedral"]
+    )
+    df["dV(kbT)"] = df["dV(kcal/mol)"] / factor
+    df_ = df[["dV(kbT)", "total_nstep", "dV(kcal/mol)"]]
+    df_ = df_[::jump]
+    df_.to_csv("weights.dat", sep="\t", index=False, header=False)
+    os.system("rm -rf data.log")
+    print(df_phi_psi.shape)
+    print(df_phi.shape)
+    print(df_.shape)
+
+
+def create_bins(lower_bound, width, upper_bound):
+
+    """
+
+    Creates bin if given the lower and upper bound
+    with the wirdth information.
+
+    """
+
+    bins = []
+    for low in range(lower_bound, upper_bound, width):
+        bins.append([low, low + width])
+    return bins
+
+
+def find_bin(value, bins):
+
+    """
+
+    Finds which value belongs to which bin.
+
+    """
+
+    for i in range(0, len(bins)):
+        if bins[i][0] <= value < bins[i][1]:
+            return i
+    return -1
+
+
+def reweight_1d(
+    binspace=10, n_structures=4, Xdim=[-180, 180], T=300.0, min_prob=0.000001
+):
+
+    """
+
+    Reweights boosted potential energies in one-dimension based on
+    Maclaurin series expansion to one, two and three degrees.
+
+    Parameters
+    ----------
+
+    binspace: int
+        Spacing between the bins
+
+    n_structures: int
+        Number of structures per bin chosen
+        for Weighted Ensemble (WE) simulations
+
+    Xdim: list
+        Range of dihedral angles
+
+    T: float
+        MD simulation temperature
+
+    min_prob: float
+        minimum probability threshold
+
+    """
+
+    beta = 1.0 / (0.001987 * float(T))
+    df_Psi = pd.read_csv("Psi.dat", delim_whitespace=True, header=None)
+    df_Psi.columns = ["Psi"]
+    df_weight = pd.read_csv("weights.dat", delim_whitespace=True, header=None)
+    df_weight.columns = ["dV_kBT", "timestep", "dVkcalmol"]
+    sum_total = df_Psi.shape[0]
+    binsX = np.arange(float(Xdim[0]), (float(Xdim[1]) + binspace), binspace)
+    hist, hist_edges = np.histogram(df_Psi[["Psi"]], bins=binsX, weights=None)
+    pstarA = [i / sum_total for i in list(hist)]
+    bins = create_bins(
+        lower_bound=int(Xdim[0]), width=binspace, upper_bound=int(Xdim[1])
+    )
+    data = df_Psi["Psi"].values.tolist()
+    binned_weights = []
+    for value in data:
+        bin_index = find_bin(value, bins)
+        binned_weights.append(bin_index)
+    df_index = pd.DataFrame(binned_weights)
+    df_index.columns = ["index"]
+    df = pd.concat([df_index, df_Psi, df_weight], axis=1)
+    dV_c1 = []
+    dV_c2 = []
+    dV_c3 = []
+    dV = []
+    for i in range(len(bins)):
+        df_i = df.loc[(df["index"] == i)]
+        dV_list = df_i["dVkcalmol"].values.tolist()
+        if len(dV_list) >= 10:
+            dV_c1.append(statistics.mean(dV_list))
+            dV_c2.append(
+                statistics.mean([i ** 2 for i in dV_list])
+                - (statistics.mean(dV_list)) ** 2
+            )
+            dV_c3.append(
+                statistics.mean([i ** 3 for i in dV_list])
+                - 3
+                * (statistics.mean([i ** 2 for i in dV_list]))
+                * (statistics.mean(dV_list))
+                + 2 * (statistics.mean(dV_list)) ** 3
+            )
+        if len(dV_list) < 10:
+            dV_c1.append(0)
+            dV_c2.append(0)
+            dV_c3.append(0)
+        dV.append(dV_list)
+    c1 = [i * beta for i in dV_c1]
+    c2 = [i * ((beta ** 2) / 2) for i in dV_c2]
+    c3 = [i * ((beta ** 3) / 6) for i in dV_c3]
+    c1 = c1
+    c12 = [a + b for a, b in zip(c1, c2)]
+    c123 = [a + b for a, b in zip(c12, c3)]
+    for i in range(len(c1)):
+        if c1[i] >= 700:
+            c1[i] = 700
+    for i in range(len(c12)):
+        if c12[i] >= 700:
+            c12[i] = 700
+    for i in range(len(c123)):
+        if c123[i] >= 700:
+            c123[i] = 700
+    ensemble_average_c1 = [exp(i) for i in c1]
+    ensemble_average_c12 = [exp(i) for i in c12]
+    ensemble_average_c123 = [exp(i) for i in c123]
+    numerator_c1 = [a * b for a, b in zip(pstarA, ensemble_average_c1)]
+    numerator_c12 = [a * b for a, b in zip(pstarA, ensemble_average_c12)]
+    numerator_c123 = [a * b for a, b in zip(pstarA, ensemble_average_c123)]
+    #### c1
+    denominatorc1 = []
+    for i in range(len(bins)):
+        product_c1 = pstarA[i] * ensemble_average_c1[i]
+        denominatorc1.append(product_c1)
+    denominator_c1 = sum(denominatorc1)
+    pA_c1 = [i / denominator_c1 for i in numerator_c1]
+    #### c12
+    denominatorc12 = []
+    for i in range(len(bins)):
+        product_c12 = pstarA[i] * ensemble_average_c12[i]
+        denominatorc12.append(product_c12)
+    denominator_c12 = sum(denominatorc12)
+    pA_c12 = [i / denominator_c12 for i in numerator_c12]
+    #### c123
+    denominatorc123 = []
+    for i in range(len(bins)):
+        product_c123 = pstarA[i] * ensemble_average_c123[i]
+        denominatorc123.append(product_c123)
+    denominator_c123 = sum(denominatorc123)
+    pA_c123 = [i / denominator_c123 for i in numerator_c123]
+    data_c1 = list(zip(bins, pA_c1))
+    data_c12 = list(zip(bins, pA_c12))
+    data_c123 = list(zip(bins, pA_c123))
+    df_c1 = pd.DataFrame(data_c1, columns=["bins", "pA_c1"])
+    df_c12 = pd.DataFrame(data_c12, columns=["bins", "pA_c12"])
+    df_c123 = pd.DataFrame(data_c123, columns=["bins", "pA_c123"])
+    ####c1
+    df_c1.to_csv("c1_1d.txt", header=True, index=None, sep=" ", mode="w")
+    with open("c1_1d.txt", "r") as f1, open("pA_c1_1d.txt", "w") as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c1_1d.txt")
+    ####c12
+    df_c12.to_csv("c12_1d.txt", header=True, index=None, sep=" ", mode="w")
+    with open("c12_1d.txt", "r") as f1, open("pA_c12_1d.txt", "w") as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c12_1d.txt")
+    ####c123
+    df_c123.to_csv("c123_1d.txt", header=True, index=None, sep=" ", mode="w")
+    with open("c123_1d.txt", "r") as f1, open("pA_c123_1d.txt", "w") as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c123_1d.txt")
+    ####c1_arranged
+    df_c1_arranged = df_c1.sort_values(by="pA_c1", ascending=False)
+    df_c1_arranged = df_c1_arranged[df_c1_arranged.pA_c1 > min_prob]
+    df_c1_arranged.to_csv(
+        "c1_arranged_1d.txt", header=True, index=None, sep=" ", mode="w"
+    )
+    with open("c1_arranged_1d.txt", "r") as f1, open(
+        "pA_c1_arranged_1d.txt", "w"
+    ) as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c1_arranged_1d.txt")
+    ####c12_arranged
+    df_c12_arranged = df_c12.sort_values(by="pA_c12", ascending=False)
+    df_c12_arranged = df_c12_arranged[df_c12_arranged.pA_c12 > min_prob]
+    df_c12_arranged.to_csv(
+        "c12_arranged_1d.txt", header=True, index=None, sep=" ", mode="w"
+    )
+    with open("c12_arranged_1d.txt", "r") as f1, open(
+        "pA_c12_arranged_1d.txt", "w"
+    ) as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c12_arranged_1d.txt")
+    ####c123_arranged
+    df_c123_arranged = df_c123.sort_values(by="pA_c123", ascending=False)
+    df_c123_arranged = df_c123_arranged[df_c123_arranged.pA_c123 > min_prob]
+    df_c123_arranged.to_csv(
+        "c123_arranged_1d.txt", header=True, index=None, sep=" ", mode="w"
+    )
+    with open("c123_arranged_1d.txt", "r") as f1, open(
+        "pA_c123_arranged_1d.txt", "w"
+    ) as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c123_arranged_1d.txt")
+    ####c1_arranged
+    df_c1_arranged["index"] = df_c1_arranged.index
+    index_list_c1 = df_c1_arranged["index"].tolist()
+    df["frame_index"] = df.index
+    df_frame_index = df[["frame_index", "index"]]
+    frame_indices_c1 = []
+    index_indces_c1 = []
+    for i in index_list_c1:
+        df_index_list_c1 = df_frame_index.loc[df_frame_index["index"] == i]
+        frame_c1 = df_index_list_c1["frame_index"].tolist()
+        frame_indices_c1.append(frame_c1)
+        index_c1 = [i] * len(frame_c1)
+        index_indces_c1.append(index_c1)
+    frame_indices_c1 = [item for elem in frame_indices_c1 for item in elem]
+    index_indces_c1 = [item for elem in index_indces_c1 for item in elem]
+    df_c1_frame = pd.DataFrame(frame_indices_c1, columns=["frame_index"])
+    df_c1_index = pd.DataFrame(index_indces_c1, columns=["index"])
+    df_c1_frame_index = pd.concat([df_c1_frame, df_c1_index], axis=1)
+    df_c1_frame_index = df_c1_frame_index.groupby("index").filter(
+        lambda x: len(x) >= 10
+    )
+    df_c1_frame_index.to_csv(
+        "c1_frame_index_1d.txt", header=True, index=None, sep=" ", mode="w"
+    )
+    with open("c1_frame_index_1d.txt", "r") as f1, open(
+        "c1_frame_1d.txt", "w"
+    ) as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c1_frame_index_1d.txt")
+    ####c12_arranged
+    df_c12_arranged["index"] = df_c12_arranged.index
+    index_list_c12 = df_c12_arranged["index"].tolist()
+    df["frame_index"] = df.index
+    df_frame_index = df[["frame_index", "index"]]
+    frame_indices_c12 = []
+    index_indces_c12 = []
+    for i in index_list_c12:
+        df_index_list_c12 = df_frame_index.loc[df_frame_index["index"] == i]
+        frame_c12 = df_index_list_c12["frame_index"].tolist()
+        frame_indices_c12.append(frame_c12)
+        index_c12 = [i] * len(frame_c12)
+        index_indces_c12.append(index_c12)
+    frame_indices_c12 = [item for elem in frame_indices_c12 for item in elem]
+    index_indces_c12 = [item for elem in index_indces_c12 for item in elem]
+    df_c12_frame = pd.DataFrame(frame_indices_c12, columns=["frame_index"])
+    df_c12_index = pd.DataFrame(index_indces_c12, columns=["index"])
+    df_c12_frame_index = pd.concat([df_c12_frame, df_c12_index], axis=1)
+    df_c12_frame_index = df_c12_frame_index.groupby("index").filter(
+        lambda x: len(x) >= 10
+    )
+    df_c12_frame_index.to_csv(
+        "c12_frame_index_1d.txt", header=True, index=None, sep=" ", mode="w"
+    )
+    with open("c12_frame_index_1d.txt", "r") as f1, open(
+        "c12_frame_1d.txt", "w"
+    ) as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c12_frame_index_1d.txt")
+    ####c123_arranged
+    df_c123_arranged["index"] = df_c123_arranged.index
+    index_list_c123 = df_c123_arranged["index"].tolist()
+    df["frame_index"] = df.index
+    df_frame_index = df[["frame_index", "index"]]
+    frame_indices_c123 = []
+    index_indces_c123 = []
+    for i in index_list_c123:
+        df_index_list_c123 = df_frame_index.loc[df_frame_index["index"] == i]
+        frame_c123 = df_index_list_c123["frame_index"].tolist()
+        frame_indices_c123.append(frame_c123)
+        index_c123 = [i] * len(frame_c123)
+        index_indces_c123.append(index_c123)
+    frame_indices_c123 = [item for elem in frame_indices_c123 for item in elem]
+    index_indces_c123 = [item for elem in index_indces_c123 for item in elem]
+    df_c123_frame = pd.DataFrame(frame_indices_c123, columns=["frame_index"])
+    df_c123_index = pd.DataFrame(index_indces_c123, columns=["index"])
+    df_c123_frame_index = pd.concat([df_c123_frame, df_c123_index], axis=1)
+    df_c123_frame_index = df_c123_frame_index.groupby("index").filter(
+        lambda x: len(x) >= 10
+    )
+    df_c123_frame_index.to_csv(
+        "c123_frame_index_1d.txt", header=True, index=None, sep=" ", mode="w"
+    )
+    with open("c123_frame_index_1d.txt", "r") as f1, open(
+        "c123_frame_1d.txt", "w"
+    ) as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c123_frame_index_1d.txt")
+    ####c1
+    indices_c1_1d = df_c1_frame_index["index"].unique()
+    frames_c1 = []
+    for i in indices_c1_1d:
+        x = df_c1_frame_index.loc[df_c1_frame_index["index"] == i]
+        y = x["frame_index"].values.tolist()
+        z = random.sample(y, n_structures)
+        frames_c1.append(z)
+    frames_c1_1d = [item for elem in frames_c1 for item in elem]
+    with open("frames_c1_1d.pickle", "wb") as f:
+        pk.dump(frames_c1_1d, f)
+    with open("indices_c1_1d.pickle", "wb") as f:
+        pk.dump(indices_c1_1d, f)
+    ####c12
+    indices_c12_1d = df_c12_frame_index["index"].unique()
+    frames_c12 = []
+    for i in indices_c12_1d:
+        x = df_c12_frame_index.loc[df_c12_frame_index["index"] == i]
+        y = x["frame_index"].values.tolist()
+        z = random.sample(y, n_structures)
+        frames_c12.append(z)
+    frames_c12_1d = [item for elem in frames_c12 for item in elem]
+    with open("frames_c12_1d.pickle", "wb") as f:
+        pk.dump(frames_c12_1d, f)
+    with open("indices_c12_1d.pickle", "wb") as f:
+        pk.dump(indices_c12_1d, f)
+    ####c123
+    indices_c123_1d = df_c123_frame_index["index"].unique()
+    frames_c123 = []
+    for i in indices_c123_1d:
+        x = df_c123_frame_index.loc[df_c123_frame_index["index"] == i]
+        y = x["frame_index"].values.tolist()
+        z = random.sample(y, n_structures)
+        frames_c123.append(z)
+    frames_c123_1d = [item for elem in frames_c123 for item in elem]
+    with open("frames_c123_1d.pickle", "wb") as f:
+        pk.dump(frames_c123_1d, f)
+    with open("indices_c123_1d.pickle", "wb") as f:
+        pk.dump(indices_c123_1d, f)
+    # saving probabilities for  each selected frame
+    ####c1
+    prob_c1_1d_list = []
+    for i in indices_c1_1d:
+        prob_c1_1d_list.append(df_c1["pA_c1"][i])
+    prob_c1_1d_list = list(
+        itertools.chain.from_iterable(
+            itertools.repeat(x, n_structures) for x in prob_c1_1d_list
+        )
+    )
+    prob_c1_1d_list = [x / n_structures for x in prob_c1_1d_list]
+    with open("prob_c1_1d_list.pickle", "wb") as f:
+        pk.dump(prob_c1_1d_list, f)
+    ####c12
+    prob_c12_1d_list = []
+    for i in indices_c12_1d:
+        prob_c12_1d_list.append(df_c12["pA_c12"][i])
+    prob_c12_1d_list = list(
+        itertools.chain.from_iterable(
+            itertools.repeat(x, n_structures) for x in prob_c12_1d_list
+        )
+    )
+    prob_c12_1d_list = [x / n_structures for x in prob_c12_1d_list]
+    with open("prob_c12_1d_list.pickle", "wb") as f:
+        pk.dump(prob_c12_1d_list, f)
+    ####c123
+    prob_c123_1d_list = []
+    for i in indices_c123_1d:
+        prob_c123_1d_list.append(df_c123["pA_c123"][i])
+    prob_c123_1d_list = list(
+        itertools.chain.from_iterable(
+            itertools.repeat(x, n_structures) for x in prob_c123_1d_list
+        )
+    )
+    prob_c123_1d_list = [x / n_structures for x in prob_c123_1d_list]
+    with open("prob_c123_1d_list.pickle", "wb") as f:
+        pk.dump(prob_c123_1d_list, f)
+    ref_df_1d = pd.DataFrame(bins, columns=["dim0", "dim1"])
+    ref_df_1d["bins"] = ref_df_1d.agg(
+        lambda x: f"[{x['dim0']} , {x['dim1']}]", axis=1
+    )
+    ref_df_1d = ref_df_1d[["bins"]]
+    index_ref_1d = []
+    for i in range(len(bins)):
+        index_ref_1d.append(i)
+    index_ref_df_1d = pd.DataFrame(index_ref_1d, columns=["index"])
+    df_ref_1d = pd.concat([ref_df_1d, index_ref_df_1d], axis=1)
+    df_ref_1d.to_csv("ref_1d.txt", header=True, index=None, sep=" ", mode="w")
+    df.to_csv("df_1d.csv", index=False)
+    os.system("rm -rf __pycache__")
+    print("Successfully Completed Reweighing")
+
+
+def reweight_2d(
+    binspace=10,
+    n_structures=4,
+    Xdim=[-180, 180],
+    Ydim=[-180, 180],
+    T=300.0,
+    min_prob=0.000001,
+):
+
+    """
+
+    Reweights boosted potential energies in two-dimensions
+    based on Maclaurin series expansion to one, two and
+    three  degrees.
+
+    Parameters
+    ----------
+
+    binspace: int
+        Spacing between the bins
+
+    n_structures: int
+        Number of structures per bin chosen
+        for Weighted Ensemble (WE) simulations
+
+    Xdim: list
+        Range of dihedral angles (1st dimension)
+
+    Ydim: list
+        Range of dihedral angles (2nd dimension)
+
+    T: float
+        MD simulation temperature
+
+    min_prob: float
+        minimum probability threshold
+
+    """
+
+    beta = 1.0 / (0.001987 * float(T))
+    df_Phi_Psi = pd.read_csv("Phi_Psi.dat", delim_whitespace=True, header=None)
+    df_Phi_Psi.columns = ["Phi", "Psi"]
+    df_weight = pd.read_csv("weights.dat", delim_whitespace=True, header=None)
+    df_weight.columns = ["dV_kBT", "timestep", "dVkcalmol"]
+    sum_total = df_Phi_Psi.shape[0]
+    binsX = np.arange(float(Xdim[0]), (float(Xdim[1]) + binspace), binspace)
+    binsY = np.arange(float(Ydim[0]), (float(Ydim[1]) + binspace), binspace)
+    hist2D, hist_edgesX, hist_edgesY = np.histogram2d(
+        df_Phi_Psi["Phi"].values.tolist(),
+        df_Phi_Psi["Psi"].values.tolist(),
+        bins=(binsX, binsY),
+        weights=None,
+    )
+    pstarA_2D = [i / sum_total for i in list(hist2D)]
+    bins_tuple_X = create_bins(
+        lower_bound=int(Xdim[0]), width=binspace, upper_bound=int(Xdim[1])
+    )
+    bins_tuple_Y = create_bins(
+        lower_bound=int(Ydim[0]), width=binspace, upper_bound=int(Ydim[1])
+    )
+    bins = []
+    for i in range(len(bins_tuple_X)):
+        for j in range(len(bins_tuple_Y)):
+            bins.append([bins_tuple_X[i], bins_tuple_Y[j]])
+    pstarA = [item for elem in pstarA_2D for item in elem]
+    hist = [item for elem in hist2D for item in elem]
+    hist = [int(i) for i in hist]
+    data_X = df_Phi_Psi["Phi"].values.tolist()
+    binned_weights_X = []
+    for value in data_X:
+        bin_index_X = find_bin(value, bins_tuple_X)
+        binned_weights_X.append(bin_index_X)
+    data_Y = df_Phi_Psi["Psi"].values.tolist()
+    binned_weights_Y = []
+    for value in data_Y:
+        bin_index_Y = find_bin(value, bins_tuple_Y)
+        binned_weights_Y.append(bin_index_Y)
+    binned_weights_2D = []
+    for i in range(len(binned_weights_X)):
+        binned_weights_2D.append([binned_weights_X[i], binned_weights_Y[i]])
+    binned_weights = []
+    for i in range(len(binned_weights_2D)):
+        binned_weights.append(
+            (binned_weights_2D[i][0] * len(bins_tuple_Y))
+            + (binned_weights_2D[i][1] + 1)
+        )
+    df_index = pd.DataFrame(binned_weights)
+    df_index.columns = ["index"]
+    df_index["index"] = df_index["index"] - 1
+    df = pd.concat([df_index, df_Phi_Psi, df_weight], axis=1)
+    dV_c1 = []
+    dV_c2 = []
+    dV_c3 = []
+    dV = []
+    for i in range(len(bins)):
+        df_i = df.loc[(df["index"] == i)]
+        dV_list = df_i["dVkcalmol"].values.tolist()
+        if len(dV_list) >= 10:
+            dV_c1.append(statistics.mean(dV_list))
+            dV_c2.append(
+                statistics.mean([i ** 2 for i in dV_list])
+                - (statistics.mean(dV_list)) ** 2
+            )
+            dV_c3.append(
+                statistics.mean([i ** 3 for i in dV_list])
+                - 3
+                * (statistics.mean([i ** 2 for i in dV_list]))
+                * (statistics.mean(dV_list))
+                + 2 * (statistics.mean(dV_list)) ** 3
+            )
+        if len(dV_list) < 10:
+            dV_c1.append(0)
+            dV_c2.append(0)
+            dV_c3.append(0)
+        dV.append(dV_list)
+    c1 = [i * beta for i in dV_c1]
+    c2 = [i * ((beta ** 2) / 2) for i in dV_c2]
+    c3 = [i * ((beta ** 3) / 6) for i in dV_c3]
+    c1 = c1
+    c12 = [a + b for a, b in zip(c1, c2)]
+    c123 = [a + b for a, b in zip(c12, c3)]
+    for i in range(len(c1)):
+        if c1[i] >= 700:
+            c1[i] = 700
+    for i in range(len(c12)):
+        if c12[i] >= 700:
+            c12[i] = 700
+    for i in range(len(c123)):
+        if c123[i] >= 700:
+            c123[i] = 700
+    ensemble_average_c1 = [exp(i) for i in c1]
+    ensemble_average_c12 = [exp(i) for i in c12]
+    ensemble_average_c123 = [exp(i) for i in c123]
+    numerator_c1 = [a * b for a, b in zip(pstarA, ensemble_average_c1)]
+    numerator_c12 = [a * b for a, b in zip(pstarA, ensemble_average_c12)]
+    numerator_c123 = [a * b for a, b in zip(pstarA, ensemble_average_c123)]
+    #### c1
+    denominatorc1 = []
+    for i in range(len(bins)):
+        product_c1 = pstarA[i] * ensemble_average_c1[i]
+        denominatorc1.append(product_c1)
+    denominator_c1 = sum(denominatorc1)
+    pA_c1 = [i / denominator_c1 for i in numerator_c1]
+    #### c12
+    denominatorc12 = []
+    for i in range(len(bins)):
+        product_c12 = pstarA[i] * ensemble_average_c12[i]
+        denominatorc12.append(product_c12)
+    denominator_c12 = sum(denominatorc12)
+    pA_c12 = [i / denominator_c12 for i in numerator_c12]
+    #### c123
+    denominatorc123 = []
+    for i in range(len(bins)):
+        product_c123 = pstarA[i] * ensemble_average_c123[i]
+        denominatorc123.append(product_c123)
+    denominator_c123 = sum(denominatorc123)
+    pA_c123 = [i / denominator_c123 for i in numerator_c123]
+    data_c1 = list(zip(bins, pA_c1))
+    data_c12 = list(zip(bins, pA_c12))
+    data_c123 = list(zip(bins, pA_c123))
+    df_c1 = pd.DataFrame(data_c1, columns=["bins", "pA_c1"])
+    df_c12 = pd.DataFrame(data_c12, columns=["bins", "pA_c12"])
+    df_c123 = pd.DataFrame(data_c123, columns=["bins", "pA_c123"])
+    df_c1.to_csv("c1_2d.txt", header=True, index=None, sep=" ", mode="w")
+    with open("c1_2d.txt", "r") as f1, open("pA_c1_2d.txt", "w") as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c1_2d.txt")
+    ####c12
+    df_c12.to_csv("c12_2d.txt", header=True, index=None, sep=" ", mode="w")
+    with open("c12_2d.txt", "r") as f1, open("pA_c12_2d.txt", "w") as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c12_2d.txt")
+    ####c123
+    df_c123.to_csv("c123_2d.txt", header=True, index=None, sep=" ", mode="w")
+    with open("c123_2d.txt", "r") as f1, open("pA_c123_2d.txt", "w") as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c123_2d.txt")
+    ####c1_arranged
+    df_c1_arranged = df_c1.sort_values(by="pA_c1", ascending=False)
+    df_c1_arranged = df_c1_arranged[df_c1_arranged.pA_c1 > min_prob]
+    df_c1_arranged.to_csv(
+        "c1_arranged_2d.txt", header=True, index=None, sep=" ", mode="w"
+    )
+    with open("c1_arranged_2d.txt", "r") as f1, open(
+        "pA_c1_arranged_2d.txt", "w"
+    ) as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c1_arranged_2d.txt")
+    ####c12_arranged
+    df_c12_arranged = df_c12.sort_values(by="pA_c12", ascending=False)
+    df_c12_arranged = df_c12_arranged[df_c12_arranged.pA_c12 > min_prob]
+    df_c12_arranged.to_csv(
+        "c12_arranged_2d.txt", header=True, index=None, sep=" ", mode="w"
+    )
+    with open("c12_arranged_2d.txt", "r") as f1, open(
+        "pA_c12_arranged_2d.txt", "w"
+    ) as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c12_arranged_2d.txt")
+    ####c123_arranged
+    df_c123_arranged = df_c123.sort_values(by="pA_c123", ascending=False)
+    df_c123_arranged = df_c123_arranged[df_c123_arranged.pA_c123 > min_prob]
+    df_c123_arranged.to_csv(
+        "c123_arranged_2d.txt", header=True, index=None, sep=" ", mode="w"
+    )
+    with open("c123_arranged_2d.txt", "r") as f1, open(
+        "pA_c123_arranged_2d.txt", "w"
+    ) as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c123_arranged_2d.txt")
+    ####c1_arranged
+    df_c1_arranged["index"] = df_c1_arranged.index
+    index_list_c1 = df_c1_arranged["index"].tolist()
+    df["frame_index"] = df.index
+    df_frame_index = df[["frame_index", "index"]]
+    frame_indices_c1 = []
+    index_indces_c1 = []
+    for i in index_list_c1:
+        df_index_list_c1 = df_frame_index.loc[df_frame_index["index"] == i]
+        frame_c1 = df_index_list_c1["frame_index"].tolist()
+        frame_indices_c1.append(frame_c1)
+        index_c1 = [i] * len(frame_c1)
+        index_indces_c1.append(index_c1)
+    frame_indices_c1 = [item for elem in frame_indices_c1 for item in elem]
+    index_indces_c1 = [item for elem in index_indces_c1 for item in elem]
+    df_c1_frame = pd.DataFrame(frame_indices_c1, columns=["frame_index"])
+    df_c1_index = pd.DataFrame(index_indces_c1, columns=["index"])
+    df_c1_frame_index = pd.concat([df_c1_frame, df_c1_index], axis=1)
+    df_c1_frame_index = df_c1_frame_index.groupby("index").filter(
+        lambda x: len(x) >= 10
+    )
+    df_c1_frame_index.to_csv(
+        "c1_frame_index_2d.txt", header=True, index=None, sep=" ", mode="w"
+    )
+    with open("c1_frame_index_2d.txt", "r") as f1, open(
+        "c1_frame_2d.txt", "w"
+    ) as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c1_frame_index_2d.txt")
+    ####c12_arranged
+    df_c12_arranged["index"] = df_c12_arranged.index
+    index_list_c12 = df_c12_arranged["index"].tolist()
+    df["frame_index"] = df.index
+    df_frame_index = df[["frame_index", "index"]]
+    frame_indices_c12 = []
+    index_indces_c12 = []
+    for i in index_list_c12:
+        df_index_list_c12 = df_frame_index.loc[df_frame_index["index"] == i]
+        frame_c12 = df_index_list_c12["frame_index"].tolist()
+        frame_indices_c12.append(frame_c12)
+        index_c12 = [i] * len(frame_c12)
+        index_indces_c12.append(index_c12)
+    frame_indices_c12 = [item for elem in frame_indices_c12 for item in elem]
+    index_indces_c12 = [item for elem in index_indces_c12 for item in elem]
+    df_c12_frame = pd.DataFrame(frame_indices_c12, columns=["frame_index"])
+    df_c12_index = pd.DataFrame(index_indces_c12, columns=["index"])
+    df_c12_frame_index = pd.concat([df_c12_frame, df_c12_index], axis=1)
+    df_c12_frame_index = df_c12_frame_index.groupby("index").filter(
+        lambda x: len(x) >= 10
+    )
+    df_c12_frame_index.to_csv(
+        "c12_frame_index_2d.txt", header=True, index=None, sep=" ", mode="w"
+    )
+    with open("c12_frame_index_2d.txt", "r") as f1, open(
+        "c12_frame_2d.txt", "w"
+    ) as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c12_frame_index_2d.txt")
+    ####c123_arranged
+    df_c123_arranged["index"] = df_c123_arranged.index
+    df_c123_arranged["index"] = df_c123_arranged.index
+    index_list_c123 = df_c123_arranged["index"].tolist()
+    df["frame_index"] = df.index
+    df_frame_index = df[["frame_index", "index"]]
+    frame_indices_c123 = []
+    index_indces_c123 = []
+    for i in index_list_c123:
+        df_index_list_c123 = df_frame_index.loc[df_frame_index["index"] == i]
+        frame_c123 = df_index_list_c123["frame_index"].tolist()
+        frame_indices_c123.append(frame_c123)
+        index_c123 = [i] * len(frame_c123)
+        index_indces_c123.append(index_c123)
+    frame_indices_c123 = [item for elem in frame_indices_c123 for item in elem]
+    index_indces_c123 = [item for elem in index_indces_c123 for item in elem]
+    df_c123_frame = pd.DataFrame(frame_indices_c123, columns=["frame_index"])
+    df_c123_index = pd.DataFrame(index_indces_c123, columns=["index"])
+    df_c123_frame_index = pd.concat([df_c123_frame, df_c123_index], axis=1)
+    df_c123_frame_index = df_c123_frame_index.groupby("index").filter(
+        lambda x: len(x) >= 10
+    )
+    df_c123_frame_index.to_csv(
+        "c123_frame_index_2d.txt", header=True, index=None, sep=" ", mode="w"
+    )
+    with open("c123_frame_index_2d.txt", "r") as f1, open(
+        "c123_frame_2d.txt", "w"
+    ) as f2:
+        for line in f1:
+            f2.write(line.replace('"', "").replace("'", ""))
+    os.system("rm -rf c123_frame_index_2d.txt")
+    ####c1
+    indices_c1_2d = df_c1_frame_index["index"].unique()
+    frames_c1 = []
+    for i in indices_c1_2d:
+        x = df_c1_frame_index.loc[df_c1_frame_index["index"] == i]
+        y = x["frame_index"].values.tolist()
+        z = random.sample(y, n_structures)
+        frames_c1.append(z)
+    frames_c1_2d = [item for elem in frames_c1 for item in elem]
+    with open("frames_c1_2d.pickle", "wb") as f:
+        pk.dump(frames_c1_2d, f)
+    with open("indices_c1_2d.pickle", "wb") as f:
+        pk.dump(indices_c1_2d, f)
+    ####c12
+    indices_c12_2d = df_c12_frame_index["index"].unique()
+    frames_c12 = []
+    for i in indices_c12_2d:
+        x = df_c12_frame_index.loc[df_c12_frame_index["index"] == i]
+        y = x["frame_index"].values.tolist()
+        z = random.sample(y, n_structures)
+        frames_c12.append(z)
+    frames_c12_2d = [item for elem in frames_c12 for item in elem]
+    with open("frames_c12_2d.pickle", "wb") as f:
+        pk.dump(frames_c12_2d, f)
+    with open("indices_c12_2d.pickle", "wb") as f:
+        pk.dump(indices_c12_2d, f)
+    ####c123
+    indices_c123_2d = df_c123_frame_index["index"].unique()
+    frames_c123 = []
+    for i in indices_c123_2d:
+        x = df_c123_frame_index.loc[df_c123_frame_index["index"] == i]
+        y = x["frame_index"].values.tolist()
+        z = random.sample(y, n_structures)
+        frames_c123.append(z)
+    frames_c123_2d = [item for elem in frames_c123 for item in elem]
+    with open("frames_c123_2d.pickle", "wb") as f:
+        pk.dump(frames_c123_2d, f)
+    with open("indices_c123_2d.pickle", "wb") as f:
+        pk.dump(indices_c123_2d, f)
+    ##saving probabilities for  each selected frame
+    ####c1
+    prob_c1_2d_list = []
+    for i in indices_c1_2d:
+        prob_c1_2d_list.append(df_c1["pA_c1"][i])
+    prob_c1_2d_list = list(
+        itertools.chain.from_iterable(
+            itertools.repeat(x, n_structures) for x in prob_c1_2d_list
+        )
+    )
+    prob_c1_2d_list = [x / n_structures for x in prob_c1_2d_list]
+    with open("prob_c1_2d_list.pickle", "wb") as f:
+        pk.dump(prob_c1_2d_list, f)
+    ####c12
+    prob_c12_2d_list = []
+    for i in indices_c12_2d:
+        prob_c12_2d_list.append(df_c12["pA_c12"][i])
+    prob_c12_2d_list = list(
+        itertools.chain.from_iterable(
+            itertools.repeat(x, n_structures) for x in prob_c12_2d_list
+        )
+    )
+    prob_c12_2d_list = [x / n_structures for x in prob_c12_2d_list]
+    with open("prob_c12_2d_list.pickle", "wb") as f:
+        pk.dump(prob_c12_2d_list, f)
+    ####c123
+    prob_c123_2d_list = []
+    for i in indices_c123_2d:
+        prob_c123_2d_list.append(df_c123["pA_c123"][i])
+    prob_c123_2d_list = list(
+        itertools.chain.from_iterable(
+            itertools.repeat(x, n_structures) for x in prob_c123_2d_list
+        )
+    )
+    prob_c123_2d_list = [x / n_structures for x in prob_c123_2d_list]
+    with open("prob_c123_2d_list.pickle", "wb") as f:
+        pk.dump(prob_c123_2d_list, f)
+    ref_df_2d = pd.DataFrame(bins, columns=["binsX", "binsY"])
+    ref_df_2d["XY"] = ref_df_2d.agg(
+        lambda x: f"{x['binsX']} , {x['binsX']}", axis=1
+    )
+    ref_df_2d = ref_df_2d[["XY"]]
+    index_ref_2d = []
+    for i in range(len(bins_tuple_X) * len(bins_tuple_Y)):
+        index_ref_2d.append(i)
+    index_ref_df_2d = pd.DataFrame(index_ref_2d, columns=["index"])
+    df_ref_2d = pd.concat([ref_df_2d, index_ref_df_2d], axis=1)
+    df_ref_2d.to_csv("ref_2d.txt", header=True, index=None, sep=" ", mode="w")
+    df.to_csv("df_2d.csv", index=False)
+    os.system("rm -rf __pycache__")
+    print("Successfully Completed Reweighing")
+
+
+def arrange_files():
+
+    """
+
+    Creates directories and move files to appropriate folders.
+
+    """
+
+    cwd = os.getcwd()
+    os.system("rm -rf txt_csv_files")
+    os.system("rm -rf dat_files")
+    os.system("rm -rf pickle_files")
+    os.system("rm -rf system_files")
+    os.system("mkdir txt_csv_files")
+    os.system("mkdir dat_files")
+    os.system("mkdir pickle_files")
+    os.system("mkdir system_files")
+    shutil.move(
+        cwd + "/" + "c1_frame_1d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "c1_frame_1d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "c12_frame_1d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "c12_frame_1d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "c123_frame_1d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "c123_frame_1d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "c1_frame_2d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "c1_frame_2d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "c12_frame_2d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "c12_frame_2d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "c123_frame_2d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "c123_frame_2d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "pA_c1_1d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "pA_c1_1d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "pA_c12_1d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "pA_c12_1d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "pA_c123_1d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "pA_c123_1d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "pA_c1_2d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "pA_c1_2d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "pA_c12_2d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "pA_c12_2d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "pA_c123_2d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "pA_c123_2d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "pA_c1_arranged_1d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "pA_c1_arranged_1d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "pA_c12_arranged_1d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "pA_c12_arranged_1d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "pA_c123_arranged_1d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "pA_c123_arranged_1d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "pA_c1_arranged_2d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "pA_c1_arranged_2d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "pA_c12_arranged_2d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "pA_c12_arranged_2d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "pA_c123_arranged_2d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "pA_c123_arranged_2d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "ref_1d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "ref_1d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "ref_2d.txt",
+        cwd + "/" + "txt_csv_files" + "/" + "ref_2d.txt",
+    )
+    shutil.move(
+        cwd + "/" + "df_1d.csv",
+        cwd + "/" + "txt_csv_files" + "/" + "df_1d.csv",
+    )
+    shutil.move(
+        cwd + "/" + "df_2d.csv",
+        cwd + "/" + "txt_csv_files" + "/" + "df_2d.csv",
+    )
+    shutil.move(
+        cwd + "/" + "weights.dat",
+        cwd + "/" + "dat_files" + "/" + "weights.dat",
+    )
+    shutil.move(
+        cwd + "/" + "Psi.dat", cwd + "/" + "dat_files" + "/" + "Psi.dat"
+    )
+    shutil.move(
+        cwd + "/" + "Phi_Psi.dat",
+        cwd + "/" + "dat_files" + "/" + "Phi_Psi.dat",
+    )
+    shutil.move(
+        cwd + "/" + "prob_c1_1d_list.pickle",
+        cwd + "/" + "pickle_files" + "/" + "prob_c1_1d_list.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "prob_c12_1d_list.pickle",
+        cwd + "/" + "pickle_files" + "/" + "prob_c12_1d_list.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "prob_c123_1d_list.pickle",
+        cwd + "/" + "pickle_files" + "/" + "prob_c123_1d_list.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "prob_c1_2d_list.pickle",
+        cwd + "/" + "pickle_files" + "/" + "prob_c1_2d_list.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "prob_c12_2d_list.pickle",
+        cwd + "/" + "pickle_files" + "/" + "prob_c12_2d_list.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "prob_c123_2d_list.pickle",
+        cwd + "/" + "pickle_files" + "/" + "prob_c123_2d_list.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "frames_c1_1d.pickle",
+        cwd + "/" + "pickle_files" + "/" + "frames_c1_1d.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "frames_c12_1d.pickle",
+        cwd + "/" + "pickle_files" + "/" + "frames_c12_1d.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "frames_c123_1d.pickle",
+        cwd + "/" + "pickle_files" + "/" + "frames_c123_1d.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "frames_c1_2d.pickle",
+        cwd + "/" + "pickle_files" + "/" + "frames_c1_2d.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "frames_c12_2d.pickle",
+        cwd + "/" + "pickle_files" + "/" + "frames_c12_2d.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "frames_c123_2d.pickle",
+        cwd + "/" + "pickle_files" + "/" + "frames_c123_2d.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "indices_c1_1d.pickle",
+        cwd + "/" + "pickle_files" + "/" + "indices_c1_1d.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "indices_c12_1d.pickle",
+        cwd + "/" + "pickle_files" + "/" + "indices_c12_1d.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "indices_c123_1d.pickle",
+        cwd + "/" + "pickle_files" + "/" + "indices_c123_1d.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "indices_c1_2d.pickle",
+        cwd + "/" + "pickle_files" + "/" + "indices_c1_2d.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "indices_c12_2d.pickle",
+        cwd + "/" + "pickle_files" + "/" + "indices_c12_2d.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "indices_c123_2d.pickle",
+        cwd + "/" + "pickle_files" + "/" + "indices_c123_2d.pickle",
+    )
+    shutil.move(
+        cwd + "/" + "system_final.inpcrd",
+        cwd + "/" + "system_files" + "/" + "system_final.inpcrd",
+    )
+    shutil.move(
+        cwd + "/" + "system_final.nc",
+        cwd + "/" + "system_files" + "/" + "system_final.nc",
+    )
+    shutil.move(
+        cwd + "/" + "system_final.out",
+        cwd + "/" + "system_files" + "/" + "system_final.out",
+    )
+    shutil.move(
+        cwd + "/" + "system_final.prmtop",
+        cwd + "/" + "system_files" + "/" + "system_final.prmtop",
+    )
+    shutil.move(
+        cwd + "/" + "system_final.rst",
+        cwd + "/" + "system_files" + "/" + "system_final.rst",
+    )
+    shutil.move(
+        cwd + "/" + "gamd.log", cwd + "/" + "system_files" + "/" + "gamd.log"
+    )
+    shutil.move(
+        cwd + "/" + "md.in", cwd + "/" + "system_files" + "/" + "md.in"
+    )
+    shutil.move(
+        cwd + "/" + "mdinfo", cwd + "/" + "system_files" + "/" + "mdinfo"
+    )
+    shutil.move(
+        cwd + "/" + "gamd-restart.dat",
+        cwd + "/" + "system_files" + "/" + "gamd-restart.dat",
+    )
+
+
+def run_reweigh():
+
+    """
+    Runs reweighing calculations systematically
+    in the simulation folder.
+
+    """
+
+    dir_list = [
+        "dihedral_threshold_lower",
+        "dihedral_threshold_upper",
+        "dual_threshold_lower",
+        "dual_threshold_upper",
+        "total_threshold_lower",
+        "total_threshold_upper",
+    ]
+    cwd = os.getcwd()
+    target_dir = cwd + "/" + "gamd_simulations" + "/"
+    # run reweighting and analysis in each of the simulation folder
+    for i in dir_list:
+        os.chdir(target_dir + i)
+        create_data_files()
+        reweight_1d()
+        reweight_2d()
+        arrange_files()
+    os.chdir(cwd)
+
+
+def clean_for_analysis():
+
+    """
+
+    Rstructures the entire filetree to start reweighing
+    analysis again. Used only when we want to run the analysis
+    again.
+
+    """
+
+    dir_list = [
+        "dihedral_threshold_lower",
+        "dihedral_threshold_upper",
+        "dual_threshold_lower",
+        "dual_threshold_upper",
+        "total_threshold_lower",
+        "total_threshold_upper",
+    ]
+    cwd = os.getcwd()
+    source_dir = cwd + "/"
+    target_dir = cwd + "/" + "gamd_simulations" + "/"
+    for i in dir_list:
+        os.chdir(target_dir + i)
+        os.system("rm -rf pickle_files dat_files txt_csv_files")
+        os.chdir(cwd)
+    for i in dir_list:
+        shutil.move(
+            cwd
+            + "/"
+            + "gamd_simulations"
+            + "/"
+            + i
+            + "/"
+            + "system_files"
+            + "/"
+            + "gamd.log",
+            cwd + "/" + "gamd_simulations" + "/" + i + "/" + "gamd.log",
+        )
+        shutil.move(
+            cwd
+            + "/"
+            + "gamd_simulations"
+            + "/"
+            + i
+            + "/"
+            + "system_files"
+            + "/"
+            + "gamd-restart.dat",
+            cwd
+            + "/"
+            + "gamd_simulations"
+            + "/"
+            + i
+            + "/"
+            + "gamd-restart.dat",
+        )
+        shutil.move(
+            cwd
+            + "/"
+            + "gamd_simulations"
+            + "/"
+            + i
+            + "/"
+            + "system_files"
+            + "/"
+            + "md.in",
+            cwd + "/" + "gamd_simulations" + "/" + i + "/" + "md.in",
+        )
+        shutil.move(
+            cwd
+            + "/"
+            + "gamd_simulations"
+            + "/"
+            + i
+            + "/"
+            + "system_files"
+            + "/"
+            + "mdinfo",
+            cwd + "/" + "gamd_simulations" + "/" + i + "/" + "mdinfo",
+        )
+        shutil.move(
+            cwd
+            + "/"
+            + "gamd_simulations"
+            + "/"
+            + i
+            + "/"
+            + "system_files"
+            + "/"
+            + "system_final.inpcrd",
+            cwd
+            + "/"
+            + "gamd_simulations"
+            + "/"
+            + i
+            + "/"
+            + "system_final.inpcrd",
+        )
+        shutil.move(
+            cwd
+            + "/"
+            + "gamd_simulations"
+            + "/"
+            + i
+            + "/"
+            + "system_files"
+            + "/"
+            + "system_final.nc",
+            cwd + "/" + "gamd_simulations" + "/" + i + "/" + "system_final.nc",
+        )
+        shutil.move(
+            cwd
+            + "/"
+            + "gamd_simulations"
+            + "/"
+            + i
+            + "/"
+            + "system_files"
+            + "/"
+            + "system_final.out",
+            cwd
+            + "/"
+            + "gamd_simulations"
+            + "/"
+            + i
+            + "/"
+            + "system_final.out",
+        )
+        shutil.move(
+            cwd
+            + "/"
+            + "gamd_simulations"
+            + "/"
+            + i
+            + "/"
+            + "system_files"
+            + "/"
+            + "system_final.prmtop",
+            cwd
+            + "/"
+            + "gamd_simulations"
+            + "/"
+            + i
+            + "/"
+            + "system_final.prmtop",
+        )
+        shutil.move(
+            cwd
+            + "/"
+            + "gamd_simulations"
+            + "/"
+            + i
+            + "/"
+            + "system_files"
+            + "/"
+            + "system_final.rst",
+            cwd
+            + "/"
+            + "gamd_simulations"
+            + "/"
+            + i
+            + "/"
+            + "system_final.rst",
+        )
+    for i in dir_list:
+        os.chdir(target_dir + i)
+        os.system("rm -rf system_files")
+        os.chdir(cwd)
+
+
 """
 prepare_bpti()
 run_equilibration()
@@ -817,4 +2273,6 @@ add_vec_inpcrd()
 add_vec_prmtop()
 create_filetree()
 run_simulations()
+run_reweigh()
+clean_for_analysis()
 """
